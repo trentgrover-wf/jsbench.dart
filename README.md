@@ -51,14 +51,18 @@ transformers:
           - --dump-info
 ```
 
-See this packages' `pubspec.yaml` for an example. If you want _even more_
-information check out the [`dump-info-visualizer`][dump-site] tool.
+See this packages' `pubspec.yaml` for an example.
+
+If you want _more_ information check out [`dump-info-visualizer`][dump-site].
 
 [dump-site]: https://github.com/dart-lang/dump-info-visualizer
 
 ### Flags
 
 `--no-dump`: Ignores all `.info.json` files on disk.
+
 `--dump-trivial-size`: Threshold number of bytes to print out a library name.
+
 `--input`: Glob pattern(s) to find emitted JavaScript files.
+
 `--exclude` Glob pattern(s) to exclude when finding inputs.
