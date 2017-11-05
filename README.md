@@ -61,6 +61,8 @@ If you want _more_ information check out [`dump-info-visualizer`][dump-site].
 
 `--no-dump`: Ignores all `.info.json` files on disk.
 
+`--no-collapse-package`: Do not collapse all `package:<name>` libraries.
+
 `--dump-trivial-size`: Threshold number of bytes to print out a library name.
 
 `--input`: Glob pattern(s) to find emitted JavaScript files.

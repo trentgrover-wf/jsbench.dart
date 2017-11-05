@@ -1,7 +1,7 @@
 name: jsbench
 description: >
   Dart->JS Size and Performance Tool
-version: 0.1.0
+version: 0.2.0
 authors:
   - Matan Lurey <matanl@google.com>
 homepage: https://github.com/matanlurey/jsbench.dart

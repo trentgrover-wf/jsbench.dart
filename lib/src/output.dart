@@ -88,6 +88,26 @@ class JsOutputDump {
   final bool noSuchMethodEnabled;
 }
 
+Iterable<JsOutputDumpLibrary> collapse(
+  Iterable<JsOutputDumpLibrary> libs,
+) sync* {
+  final collate = <String, List<JsOutputDumpLibrary>>{};
+  for (final lib in libs) {
+    if (lib.url.startsWith('package:')) {
+      final url = Uri.parse(lib.url);
+      collate.putIfAbsent(url.pathSegments.first, () => []).add(lib);
+    } else {
+      yield lib;
+    }
+  }
+  for (final name in collate.keys) {
+    yield new JsOutputDumpLibrary._(
+      'package:$name',
+      new Size(bytes: collate[name].fold<int>(0, (b, l) => b + l.size.inBytes)),
+    );
+  }
+}
+
 class JsOutputDumpLibrary implements Comparable<JsOutputDumpLibrary> {
   final String url;
   final Size size;

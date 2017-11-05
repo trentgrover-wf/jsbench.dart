@@ -14,7 +14,7 @@ import 'package:path/path.dart' as p;
 Future<Null> main(List<String> args) async {
   final results = _parser.parse(args);
   if (results['version'] == true) {
-    stdout.writeln('jsbench version: 0.1.0');
+    stdout.writeln('jsbench version: 0.2.0');
     return;
   }
   if (results['help'] == true) {
@@ -24,6 +24,7 @@ Future<Null> main(List<String> args) async {
   final dumpTrivialSize = new Size(
     bytes: int.parse(results['dump-trivial-size'] as String),
   );
+  final bool collapsePackages = results['collapse-package'];
   final excludes = (results['exclude'] as Iterable<String>).map(_toGlob);
   final inputs = (results['input'] as Iterable<String>)
       .map(_toGlob)
@@ -88,9 +89,11 @@ Future<Null> main(List<String> args) async {
       writeRow('minified?', dump.minified ? 'Yes' : 'No');
       writeRow('noSuchMethod?', dump.noSuchMethodEnabled ? 'Yes' : 'No');
       writeSeparator();
-
-      for (final source in dump.orderedLibraries
-          .where((lib) => lib.size >= dumpTrivialSize)) {
+      var libs = dump.orderedLibraries;
+      if (collapsePackages) {
+        libs = (collapse(libs).toList()..sort()).reversed;
+      }
+      for (final source in libs.where((lib) => lib.size >= dumpTrivialSize)) {
         writeRow(
           source.url,
           source.size.toString(),
@@ -122,6 +125,11 @@ final _parser = new ArgParser()
     help: ''
         'Read {input}.info.json files to determine size contributions.\n'
         '(defaults to whether .info.json files are found on disk)',
+  )
+  ..addFlag(
+    'collapse-package',
+    defaultsTo: true,
+    help: 'Collapse all libraries from a package into one.',
   )
   ..addOption(
     'dump-trivial-size',
