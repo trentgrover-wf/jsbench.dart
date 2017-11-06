@@ -6,10 +6,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:jsbench/src/output.dart';
-import 'package:glob/glob.dart';
 import 'package:kilobyte/kilobyte.dart';
 import 'package:path/path.dart' as p;
+
+import 'package:jsbench/src/finder.dart';
+import 'package:jsbench/src/output.dart';
+
+const _nameLength = 80;
 
 Future<Null> main(List<String> args) async {
   final results = _parser.parse(args);
@@ -25,33 +28,25 @@ Future<Null> main(List<String> args) async {
     bytes: int.parse(results['dump-trivial-size'] as String),
   );
   final bool collapsePackages = results['collapse-package'];
-  final excludes = (results['exclude'] as Iterable<String>).map(_toGlob);
-  final inputs = (results['input'] as Iterable<String>)
-      .map(_toGlob)
-      .map((g) {
-        try {
-          return g.listSync();
-        } on FileSystemException catch (_) {
-          return const <FileSystemEntity>[];
-        }
-      })
-      .expand((e) => e)
-      .where((f) => !excludes.any((g) => g.matches(f.path)))
-      .toList();
+  final excludes = (results['exclude'] as List<String>);
+  final includes = (results['input'] as List<String>);
+  final archive = (results['archive'] as List<String>) ?? const [];
+  final finder = new FileFinder(includes, exclude: excludes, archive: archive);
+  final inputs = finder.find().toList();
   if (inputs.isEmpty) {
-    stderr.writeln('No inputs found in ${results['input']}');
+    stderr.writeln('No files found in $includes (exclude=$excludes).');
     exitCode = 1;
     return;
   }
   final checkDumpInfo = results['dump'] != false;
-  for (final File file in inputs) {
+  for (final path in inputs) {
     final buffer = new StringBuffer();
 
     void writeRow(String f1, [String f2 = '', String f3 = '']) {
       buffer
         ..write(' | ')
         ..write(f1)
-        ..write(' ' * (40 - f1.length))
+        ..write(' ' * (_nameLength - f1.length))
         ..write(' | ')
         ..write(f2)
         ..write(' ' * (10 - f2.length))
@@ -62,10 +57,11 @@ Future<Null> main(List<String> args) async {
     }
 
     void writeSeparator() {
-      writeRow('-' * 40, '-' * 10, '-' * 10);
+      writeRow('-' * _nameLength, '-' * 10, '-' * 10);
     }
 
-    final output = new JsOutput(file);
+    final proxy = new _FileProxy(path, finder);
+    final output = new JsOutput(proxy);
 
     String formatAsPercent(num amount) {
       final percentNum = ((amount / output.size.inBytes) * 100);
@@ -76,7 +72,7 @@ Future<Null> main(List<String> args) async {
       return '$percent%';
     }
 
-    writeRow(p.basename(file.path), output.size.toString(), '');
+    writeRow(p.basename(proxy.path), output.size.toString(), '');
     writeSeparator();
 
     if (checkDumpInfo && output.hasDumpFile) {
@@ -105,7 +101,29 @@ Future<Null> main(List<String> args) async {
   }
 }
 
-Glob _toGlob(String p) => new Glob(p);
+class _FileProxy implements FileProxy {
+  final FileFinder _finder;
+  String _stringContents;
+
+  _FileProxy(this.path, this._finder);
+
+  @override
+  bool exists() => _finder.exists(path);
+
+  @override
+  final String path;
+
+  @override
+  String readAsStringSync() => _stringContents ??= _finder.readAsString(path);
+
+  @override
+  FileProxy relative(String relative) {
+    return new _FileProxy(relative, _finder);
+  }
+
+  @override
+  int get size => readAsStringSync().length;
+}
 
 final _parser = new ArgParser()
   ..addFlag(
@@ -149,4 +167,11 @@ final _parser = new ArgParser()
     defaultsTo: 'build/*/packages/**',
     allowMultiple: true,
     help: 'What pattern(s) to exclude when finding outputs.',
+  )
+  ..addOption(
+    'archive',
+    abbr: 'a',
+    allowMultiple: true,
+    allowed: ['tar'],
+    help: 'Archive formats to search. By default this is not used.',
   );
